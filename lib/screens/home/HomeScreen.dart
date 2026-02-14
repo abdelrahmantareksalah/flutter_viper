@@ -10,59 +10,72 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
-    // TODO: implement initState
     super.initState();
-
     getLocationPermission();
   }
 
   @override
   Widget build(BuildContext context) {
     return LayoutComponent(
-      child: Center(
-        child: SizedBox(
-          width: 500,
-          child: GridView(
-            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 2,
-              mainAxisSpacing: 10.0,
-              crossAxisSpacing: 10.0,
-              childAspectRatio: 2,
-            ),
-            shrinkWrap: true,
+      // We add a Column because Expanded needs a Flex parent (Column or Row)
+      child: Padding(
+        padding: const EdgeInsets.all(20.0),
+
+          child: Column(
             children: [
-              navButton(
-                context: context,
-                text: 'Paths Map',
-                route: "/map",
-                icon: Icons.map,
-              ),
-              navButton(
-                context: context,
-                text: 'Create Path',
-                route: "/map",
-                icon: Icons.add_road_rounded,
-              ),
-              navButton(
-                context: context,
-                text: 'Navigate',
-                route: "/command",
-                icon: Icons.navigation_outlined,
-              ),
-              navButton(
-                context: context,
-                text: 'Command',
-                route: "/command",
-                icon: Icons.settings,
+              // Expanded stretches the Center/SizedBox to fill the screen height
+              Expanded(
+                child: Center(
+                  child: SizedBox(
+                    width: MediaQuery.of(context).size.width * 0.9,
+                    child: GridView(
+                      // physics stops the "scrolling" feel
+
+                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: 1, // You chose 1 column
+                        mainAxisSpacing: 20.0,
+                        crossAxisSpacing: 10.0,
+                        // If you want them to fill the height more, make this 1.2 or 1.0
+                        childAspectRatio: 3, 
+                      ),
+                      shrinkWrap: true,
+                      children: [
+                        navButton(
+                          context: context,
+                          text: 'Paths Map',
+                          route: "/map",
+                          icon: Icons.map,
+                        ),
+                        navButton(
+                          context: context,
+                          text: 'Create Path',
+                          route: "/createPath",
+                          icon: Icons.add_road_rounded,
+                        ),
+                        navButton(
+                          context: context,
+                          text: 'Navigate',
+                          route: "/command",
+                          icon: Icons.navigation_outlined,
+                        ),
+                        navButton(
+                          context: context,
+                          text: 'Command',
+                          route: "/command",
+                          icon: Icons.settings,
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
               ),
             ],
           ),
-        ),
-      ),
+      ),   
     );
   }
 
-  Widget navButton({
+ Widget navButton({
     required BuildContext context,
     required String text,
     required String route,
@@ -72,9 +85,12 @@ class _HomeScreenState extends State<HomeScreen> {
       onPressed: () {
         Navigator.pushNamed(context, route);
       },
-      style: ButtonStyle(),
-      icon: Icon(icon, size: 40),
-      label: Text(text, textScaler: TextScaler.linear(1.5)),
+      // styleFrom makes it easier to change button appearance
+      style: FilledButton.styleFrom(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+      ),
+      icon: Icon(icon, size: 50), // Bigger icons for tablet
+      label: Text(text, style: const TextStyle(fontSize: 24)),
     );
   }
 }
