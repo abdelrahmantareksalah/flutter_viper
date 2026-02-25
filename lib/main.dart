@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_viper/screens/command/CommandScreen.dart';
 import 'package:flutter_viper/screens/home/HomeScreen.dart';
+import 'package:flutter_viper/screens/manualControl/manualControScreen.dart';
 import 'package:flutter_viper/screens/map/MapScreen.dart';
 import 'package:flutter_viper/screens/createPath/CreatePathScreen.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
@@ -30,6 +31,8 @@ class MyApp extends StatelessWidget {
         '/map': (context) => MapScreen(),
         '/createPath': (context) => CreatePathScreen(),
         '/command': (context) => CommandScreen(),
+        '/manualControl': (context) => ManualControlScreen(),
+    
       },
     );
   }

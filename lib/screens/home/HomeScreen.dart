@@ -64,6 +64,12 @@ class _HomeScreenState extends State<HomeScreen> {
                           route: "/command",
                           icon: Icons.settings,
                         ),
+                        navButton(
+                          context: context,
+                          text:' Manual control',
+                          route: "/manualControl",
+                          icon: Icons.car_rental ,
+                        ),
                       ],
                     ),
                   ),
