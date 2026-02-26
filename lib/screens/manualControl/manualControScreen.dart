@@ -35,7 +35,7 @@ class _ManualControlScreenState extends State<ManualControlScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text("ILIOS Manual Control"),
+        title: Text("Hureka Manual Control"),
         backgroundColor: Colors.blueGrey,
       ),
       body: Column(
