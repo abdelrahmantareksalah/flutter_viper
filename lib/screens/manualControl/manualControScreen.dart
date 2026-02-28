@@ -1,50 +1,53 @@
 import 'dart:async';
-import 'dart:ffi';
-import 'dart:math';
-
-import 'package:flutter/material.dart';
-import 'package:flutter_map/flutter_map.dart';
-import 'package:flutter_viper/components/layout/LayoutComponent.dart';
-import 'package:flutter_viper/components/loader/FutureLoaderComponent.dart';
-import 'package:flutter_viper/components/maps/MapComponent.dart';
-import 'package:flutter_viper/utils/map/getCurrentPosition.dart';
-import 'package:flutter_viper/utils/map/getPreciseLocationStream.dart';
-import 'package:latlong2/latlong.dart';
-import 'package:geolocator/geolocator.dart';
 import 'package:flutter/material.dart';
 
-// (Keep your other imports here for the map and GPS later)
+// (Keep your other map and GPS imports here)
 
-// 1. We fixed the naming so it matches perfectly
 class ManualControlScreen extends StatefulWidget {
+  // I fixed the "super parameter" warning here!
+  const ManualControlScreen({super.key});
+
   @override
   State<ManualControlScreen> createState() => _ManualControlScreenState();
 }
 
-// 2. This is the "State" - where the screen actually gets built and updated
 class _ManualControlScreenState extends State<ManualControlScreen> {
-  
-  // A simple function to test our buttons before we add the server connection
+  Timer? _movementTimer;
+
   void sendCommand(String command) {
     print("Sending command to buggy: $command");
     // Later, the WebSocket code goes here!
   }
 
-  // 3. The 'build' method is the actual UI you see on the phone
+  void _startMoving(String command) {
+    _movementTimer?.cancel(); 
+    sendCommand(command); 
+    _movementTimer = Timer.periodic(const Duration(milliseconds: 100), (timer) {
+      sendCommand(command);
+    });
+  }
+
+  void _stopMoving() {
+    _movementTimer?.cancel(); 
+    sendCommand("BRAKE");     
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text("Hureka Manual Control"),
+        title: const Text("Hureka Manual Control"),
         backgroundColor: Colors.blueGrey,
       ),
       body: Column(
-        mainAxisAlignment: MainAxisAlignment.end, // Pushes controls to the bottom
+        mainAxisAlignment: MainAxisAlignment.end,
         children: [
-          // This empty space is where your MapComponent will go later!
-          Expanded(
+          const Expanded(
             child: Center(
-              child: Text("GPS Map goes here later!", style: TextStyle(color: Colors.grey)),
+              child: Text(
+                "GPS Map goes here later!",
+                style: TextStyle(color: Colors.grey),
+              ),
             ),
           ),
           
@@ -53,56 +56,82 @@ class _ManualControlScreenState extends State<ManualControlScreen> {
             padding: const EdgeInsets.only(bottom: 50.0),
             child: Column(
               children: [
+                
                 // FORWARD BUTTON
-                ElevatedButton(
-                  onPressed: () => sendCommand("FORWARD"),
-                  child: Icon(Icons.arrow_upward, size: 40),
-                  style: ElevatedButton.styleFrom(padding: EdgeInsets.all(20)),
+                Listener(
+                  onPointerDown: (_) => _startMoving("FORWARD"),
+                  onPointerUp: (_) => _stopMoving(),
+                  onPointerCancel: (_) => _stopMoving(),
+                  child: ElevatedButton(
+                    onPressed: () {}, 
+                    style: ElevatedButton.styleFrom(padding: const EdgeInsets.all(20)),
+                    child: const Icon(Icons.arrow_upward, size: 40),
+                  ),
                 ),
-                SizedBox(height: 10),
+                const SizedBox(height: 10),
                 
                 // LEFT, BRAKE, RIGHT BUTTONS
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    ElevatedButton(
-                      onPressed: () => sendCommand("LEFT"),
-                      child: Icon(Icons.arrow_back, size: 40),
-                      style: ElevatedButton.styleFrom(padding: EdgeInsets.all(20)),
-                    ),
-                    SizedBox(width: 10),
-                    
-                    // E-BRAKE
-                    ElevatedButton(
-                      onPressed: () => sendCommand("BRAKE"),
-                      child: Icon(Icons.stop, size: 40, color: Colors.white),
-                      style: ElevatedButton.styleFrom(
-                        padding: EdgeInsets.all(20),
-                        backgroundColor: Colors.red, // Red for danger!
+                    // LEFT BUTTON
+                    Listener(
+                      onPointerDown: (_) => _startMoving("LEFT"),
+                      onPointerUp: (_) => _stopMoving(),
+                      onPointerCancel: (_) => _stopMoving(),
+                      child: ElevatedButton(
+                        onPressed: () {},
+                        style: ElevatedButton.styleFrom(padding: const EdgeInsets.all(20)),
+                        child: const Icon(Icons.arrow_back, size: 40),
                       ),
                     ),
-                    SizedBox(width: 10),
+                    const SizedBox(width: 10),
                     
+                    // E-BRAKE (Still just a single tap to stop)
                     ElevatedButton(
-                      onPressed: () => sendCommand("RIGHT"),
-                      child: Icon(Icons.arrow_forward, size: 40),
-                      style: ElevatedButton.styleFrom(padding: EdgeInsets.all(20)),
+                      onPressed: () {
+                        _movementTimer?.cancel();
+                        sendCommand("BRAKE");
+                      },
+                      style: ElevatedButton.styleFrom(
+                        padding: const EdgeInsets.all(20),
+                        backgroundColor: Colors.red, // Red for danger!
+                      ),
+                      child: const Icon(Icons.stop, size: 40, color: Colors.white),
+                    ),
+                    const SizedBox(width: 10),
+                    
+                    // RIGHT BUTTON
+                    Listener(
+                      onPointerDown: (_) => _startMoving("RIGHT"),
+                      onPointerUp: (_) => _stopMoving(),
+                      onPointerCancel: (_) => _stopMoving(),
+                      child: ElevatedButton(
+                        onPressed: () {},
+                        style: ElevatedButton.styleFrom(padding: const EdgeInsets.all(20)),
+                        child: const Icon(Icons.arrow_forward, size: 40),
+                      ),
                     ),
                   ],
                 ),
-                SizedBox(height: 10),
+                const SizedBox(height: 10),
                 
                 // REVERSE BUTTON
-                ElevatedButton(
-                  onPressed: () => sendCommand("REVERSE"),
-                  child: Icon(Icons.arrow_downward, size: 40),
-                  style: ElevatedButton.styleFrom(padding: EdgeInsets.all(20)),
+                Listener(
+                  onPointerDown: (_) => _startMoving("REVERSE"),
+                  onPointerUp: (_) => _stopMoving(),
+                  onPointerCancel: (_) => _stopMoving(),
+                  child: ElevatedButton(
+                    onPressed: () {},
+                    style: ElevatedButton.styleFrom(padding: const EdgeInsets.all(20)),
+                    child: const Icon(Icons.arrow_downward, size: 40),
+                  ),
                 ),
               ],
             ),
           ),
-        ],
-      ),
-    );
-  }
-}
+        ], // -> THIS closes the main body Column
+      ), // -> THIS closes the Scaffold body
+    ); // -> THIS closes the Scaffold
+  } // -> THIS closes the build method
+} // -> THIS closes the State class
