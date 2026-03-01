@@ -1,6 +1,9 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 
+// 1. We import the connection class we just built!
+import 'package:flutter_viper/components/Ros2_connection/connection.dart';
+
 // (Keep your other map and GPS imports here)
 
 class ManualControlScreen extends StatefulWidget {
@@ -14,9 +17,29 @@ class ManualControlScreen extends StatefulWidget {
 class _ManualControlScreenState extends State<ManualControlScreen> {
   Timer? _movementTimer;
 
+  // 2. INIT STATE: Runs automatically when this screen opens
+  @override
+  void initState() {
+    super.initState();
+    // Connect to your ROS car the moment this controller screen opens!
+    // TODO: Replace '192.168.1.X' with your car's actual local Wi-Fi IP address
+    rosConnection.connect('192.168.1.X'); 
+  }
+
+  // 3. DISPOSE: Runs automatically when you navigate away from this screen
+  @override
+  void dispose() {
+    // Safety first: stop the car and kill the timer if we close the app/screen!
+    _movementTimer?.cancel();
+    rosConnection.publishCommand("BRAKE");
+    rosConnection.disconnect(); 
+    super.dispose();
+  }
+
+  // 4. Send the command using the WebSocket instead of just printing it
   void sendCommand(String command) {
     print("Sending command to buggy: $command");
-    // Later, the WebSocket code goes here!
+    rosConnection.publishCommand(command);
   }
 
   void _startMoving(String command) {
