@@ -42,6 +42,12 @@ class _HomeScreenState extends State<HomeScreen> {
                       children: [
                         navButton(
                           context: context,
+                          text:' Manual control',
+                          route: "/manualControl",
+                          icon: Icons.car_rental ,
+                        ),
+                        navButton(
+                          context: context,
                           text: 'Paths Map',
                           route: "/map",
                           icon: Icons.map,
@@ -64,12 +70,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           route: "/command",
                           icon: Icons.settings,
                         ),
-                        navButton(
-                          context: context,
-                          text:' Manual control',
-                          route: "/manualControl",
-                          icon: Icons.car_rental ,
-                        ),
+
                       ],
                     ),
                   ),
