@@ -103,7 +103,7 @@ class _CommandScreenState extends State<CommandScreen> {
         itemBuilder: (context, index) {
           final robot = _myRobots[index];
           return Card(
-            margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
             child: ListTile(
               leading: const Icon(Icons.settings_remote, color: Colors.blue),
               title: Text(robot.name),
