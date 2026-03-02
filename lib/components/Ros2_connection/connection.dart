@@ -3,11 +3,11 @@ import 'package:web_socket_channel/web_socket_channel.dart';
 
 class RosConnection {
   WebSocketChannel? _channel;
+  String? currentIp; // Add this
 
-  // 1. Connect to the ROS car's IP address
   void connect(String ipAddress) {
-    // Replace 'localhost' with your car's actual Wi-Fi IP address later
-    final url = 'ws://$ipAddress:9090'; 
+    currentIp = ipAddress; // Store it
+    final url = 'ws://$ipAddress:9090';
     
     print("Attempting to connect to ROS at $url...");
     _channel = WebSocketChannel.connect(Uri.parse(url));
@@ -39,23 +39,19 @@ class RosConnection {
   }
 
   // 3. Publish a command to the car (like FORWARD or LEFT)
-  void publishCommand(String command) {
-    if (_channel == null) {
-      print("Cannot send command, not connected to ROS!");
-      return;
-    }
+  void publishCommand(double linearX, double angularZ) {
+    if (_channel == null) return;
 
     final publishMsg = {
       "op": "publish",
-      "topic": "/chatter", // We will likely change this to a /cmd_vel topic later!
+      "topic": "/cmd_vel", // Match the ROS node topic!
       "msg": {
-        "data": command
+        "linear": {"x": linearX, "y": 0.0, "z": 0.0},
+        "angular": {"x": 0.0, "y": 0.0, "z": angularZ}
       }
     };
     
-    // Send the JSON command to rosbridge
     _channel?.sink.add(jsonEncode(publishMsg));
-    print('Command sent to car: $command');
   }
 
   // 4. Close the connection when done

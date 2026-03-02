@@ -5,6 +5,7 @@ import 'package:flutter_viper/screens/manualControl/manualControlScreen.dart';
 import 'package:flutter_viper/screens/map/MapScreen.dart';
 import 'package:flutter_viper/screens/createPath/CreatePathScreen.dart';
 import 'package:wakelock_plus/wakelock_plus.dart';
+import 'package:flutter_viper/screens/robot_selection/selection_screen.dart';
 
 // 1. We only import the connection to have it in the project scope, 
 // but we don't put it in the routes list because it's not a "Screen".
@@ -39,8 +40,8 @@ class MyApp extends StatelessWidget {
         '/map': (context) =>  MapScreen(),
         '/createPath': (context) =>  CreatePathScreen(),
         '/command': (context) =>  CommandScreen(),
-        '/manualControl': (context) => const ManualControlScreen(),
-        // REMOVED: '/Ros2_connection'. You can't navigate to a logic class!
+        '/manualControl': (context) => ManualControlScreen(),
+        '/robot_selection': (context) => DeviceSelectionScreen(),
       },
     );
   }

@@ -23,7 +23,7 @@ class _ManualControlScreenState extends State<ManualControlScreen> {
     super.initState();
     // Connect to your ROS car the moment this controller screen opens!
     // TODO: Replace '192.168.1.X' with your car's actual local Wi-Fi IP address
-    rosConnection.connect('192.168.1.X'); 
+    rosConnection.connect('192.168.100.1'); 
   }
 
   // 3. DISPOSE: Runs automatically when you navigate away from this screen
@@ -31,28 +31,34 @@ class _ManualControlScreenState extends State<ManualControlScreen> {
   void dispose() {
     // Safety first: stop the car and kill the timer if we close the app/screen!
     _movementTimer?.cancel();
-    rosConnection.publishCommand("BRAKE");
+    rosConnection.publishCommand(0 , 0);
     rosConnection.disconnect(); 
     super.dispose();
   }
 
   // 4. Send the command using the WebSocket instead of just printing it
-  void sendCommand(String command) {
-    print("Sending command to buggy: $command");
-    rosConnection.publishCommand(command);
+ // 4. Send velocity values (Linear for speed, Angular for turning)
+  void sendCommand(double linear, double angular) {
+    rosConnection.publishCommand(linear, angular);
   }
 
-  void _startMoving(String command) {
+  void _startMoving(double linear, double angular) {
     _movementTimer?.cancel(); 
-    sendCommand(command); 
+    sendCommand(linear, angular); 
     _movementTimer = Timer.periodic(const Duration(milliseconds: 100), (timer) {
-      sendCommand(command);
+      sendCommand(linear, angular);
     });
   }
 
-  void _stopMoving() {
+  void _brakes() {
     _movementTimer?.cancel(); 
-    sendCommand("BRAKE");     
+    sendCommand(0.0 , 0.0); // 0.0 means stop!    
+  }
+
+  void _stopSignal(){
+    _movementTimer?.cancel();
+    sendCommand(0.0 , 0.0);
+
   }
 
   @override
@@ -82,9 +88,9 @@ class _ManualControlScreenState extends State<ManualControlScreen> {
                 
                 // FORWARD BUTTON
                 Listener(
-                  onPointerDown: (_) => _startMoving("FORWARD"),
-                  onPointerUp: (_) => _stopMoving(),
-                  onPointerCancel: (_) => _stopMoving(),
+                  onPointerDown: (_) => _startMoving(0.5 , 0.0),
+                  onPointerUp: (_) => _stopSignal(),
+                  onPointerCancel: (_) => _stopSignal(),
                   child: ElevatedButton(
                     onPressed: () {}, 
                     style: ElevatedButton.styleFrom(padding: const EdgeInsets.all(20)),
@@ -99,9 +105,9 @@ class _ManualControlScreenState extends State<ManualControlScreen> {
                   children: [
                     // LEFT BUTTON
                     Listener(
-                      onPointerDown: (_) => _startMoving("LEFT"),
-                      onPointerUp: (_) => _stopMoving(),
-                      onPointerCancel: (_) => _stopMoving(),
+                      onPointerDown: (_) => _startMoving(0.0 , 1.0),
+                      onPointerUp: (_) => _stopSignal(),
+                      onPointerCancel: (_) => _stopSignal(),
                       child: ElevatedButton(
                         onPressed: () {},
                         style: ElevatedButton.styleFrom(padding: const EdgeInsets.all(20)),
@@ -114,7 +120,7 @@ class _ManualControlScreenState extends State<ManualControlScreen> {
                     ElevatedButton(
                       onPressed: () {
                         _movementTimer?.cancel();
-                        sendCommand("BRAKE");
+                        _brakes();
                       },
                       style: ElevatedButton.styleFrom(
                         padding: const EdgeInsets.all(20),
@@ -126,9 +132,9 @@ class _ManualControlScreenState extends State<ManualControlScreen> {
                     
                     // RIGHT BUTTON
                     Listener(
-                      onPointerDown: (_) => _startMoving("RIGHT"),
-                      onPointerUp: (_) => _stopMoving(),
-                      onPointerCancel: (_) => _stopMoving(),
+                      onPointerDown: (_) => _startMoving(0.0 , -1.0),
+                      onPointerUp: (_) => _stopSignal(),
+                      onPointerCancel: (_) => _stopSignal(),
                       child: ElevatedButton(
                         onPressed: () {},
                         style: ElevatedButton.styleFrom(padding: const EdgeInsets.all(20)),
@@ -141,9 +147,9 @@ class _ManualControlScreenState extends State<ManualControlScreen> {
                 
                 // REVERSE BUTTON
                 Listener(
-                  onPointerDown: (_) => _startMoving("REVERSE"),
-                  onPointerUp: (_) => _stopMoving(),
-                  onPointerCancel: (_) => _stopMoving(),
+                  onPointerDown: (_) => _startMoving(-0.5, 0.0),
+                  onPointerUp: (_) => _stopSignal(),
+                  onPointerCancel: (_) => _stopSignal(),
                   child: ElevatedButton(
                     onPressed: () {},
                     style: ElevatedButton.styleFrom(padding: const EdgeInsets.all(20)),
