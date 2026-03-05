@@ -40,12 +40,12 @@ dependencies:
   geolocator: ^11.0.0 
   wakelock_plus: ^1.0.0
   web_socket_channel: ^3.0.3
-
+  flutter_joystick: ^0.2.2
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
-
+  
   # The "flutter_lints" package below contains a set of recommended lints to
   # encourage good coding practices. The lint set provided by the package is
   # activated in the `analysis_options.yaml` file located at the root of your
