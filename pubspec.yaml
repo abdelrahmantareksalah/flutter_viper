@@ -41,7 +41,7 @@ dependencies:
   wakelock_plus: ^1.0.0
   web_socket_channel: ^3.0.3
   flutter_joystick: ^0.2.2
-
+  shared_preferences:
 dev_dependencies:
   flutter_test:
     sdk: flutter

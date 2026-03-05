@@ -13,14 +13,17 @@ class _ManualControlScreenState extends State<ManualControlScreen> {
   final double maxLinearSpeed = 1.0;
   final double maxAngularSpeed = 1.0;
 
-  @override
+ @override
   void initState() {
     super.initState();
-    rosConnection.connect('192.168.100.16', onConnectionLost: () {
-      if (mounted) {
-        Navigator.pop(context);
-      }
-    });
+    // We REMOVED rosConnection.connect() from here because the 
+    // DeviceSelectionScreen already did it!
+    
+    // Optional: We can still add a safety check just in case the connection drops
+    // while we are driving.
+    if (!rosConnection.isConnected) {
+       Navigator.pop(context); // Kick back to selection screen if dead
+    }
   }
 
   @override

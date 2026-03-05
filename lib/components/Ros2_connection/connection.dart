@@ -13,10 +13,11 @@ class RosConnection {
 
     try {
       _channel = WebSocketChannel.connect(Uri.parse(url));
+      
+      // NEW: Tell the app we are connected immediately!
+      isConnected = true; 
 
-      // ==========================================
-      // NEW: ADVERTISE THE TOPIC TO ROS 2
-      // ==========================================
+      // ADVERTISE THE TOPIC TO ROS 2
       final advertiseMsg = {
         "op": "advertise",
         "topic": "/cmd_vel",
@@ -27,11 +28,9 @@ class RosConnection {
 
       _channel?.stream.listen(
         (message) {
-          isConnected = true; 
+          // (You can remove the isConnected = true from here if you want, 
+          // since we already set it above!)
           final decodedMessage = jsonDecode(message);
-          if (decodedMessage['op'] == 'publish' && decodedMessage['topic'] == '/chatter') {
-            print('Received message from car: ${decodedMessage['msg']['data']}');
-          }
         },
         onError: (error) {
           print("WebSocket Network Error: $error");
