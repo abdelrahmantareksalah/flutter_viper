@@ -59,9 +59,11 @@ class RosConnection {
   }
 
   void publishCommand(double linearX, double angularZ) {
+    print("Attempting to publish: $isConnected"); // ADD THIS LINE
     if (_channel == null || !isConnected) {
-      return; 
-    }
+      print("BLOCKED: Channel is null or not connected"); // ADD THIS LINE
+    return; 
+  }
 
     final publishMsg = {
       "op": "publish",
