@@ -7,20 +7,31 @@ class MapComponent extends StatelessWidget {
   final MarkerLayer markerLayer;
   final PolylineLayer polylineLayer;
   final MapController? mapController;
-  
+  final bool controllable;
+  final VoidCallback? onMapReady;
+
   const MapComponent({
     super.key,
     required this.initialPosition,
     this.markerLayer = const MarkerLayer(markers: []),
     this.polylineLayer = const PolylineLayer(polylines: []),
-    this.mapController
+    this.mapController,
+    this.controllable = true,
+    this.onMapReady,
   });
 
   @override
   Widget build(BuildContext context) {
     return FlutterMap(
       mapController: mapController,
-      options: MapOptions(initialCenter: initialPosition, initialZoom: 20.0),
+      options: MapOptions(
+        initialCenter: initialPosition,
+        initialZoom: 20.0,
+        onMapReady: onMapReady,
+        interactionOptions: InteractionOptions(
+          flags: controllable ? InteractiveFlag.all : InteractiveFlag.none,
+        ),
+      ),
       children: [
         // Tile Layer (the actual map imagery)
         TileLayer(

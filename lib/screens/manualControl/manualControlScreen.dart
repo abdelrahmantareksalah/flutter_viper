@@ -1,6 +1,16 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_joystick/flutter_joystick.dart';
+import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_viper/components/Ros2_connection/connection.dart';
+import 'package:flutter_viper/components/buttons/HoldDetectorButton.dart';
+import 'package:flutter_viper/components/loader/FutureLoaderComponent.dart';
+import 'package:flutter_viper/components/maps/MapComponent.dart';
+import 'package:flutter_viper/utils/map/getCurrentPosition.dart';
+import 'package:flutter_viper/utils/map/getPreciseLocationStream.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:latlong2/latlong.dart';
 
 class ManualControlScreen extends StatefulWidget {
   const ManualControlScreen({super.key});
@@ -12,37 +22,42 @@ class ManualControlScreen extends StatefulWidget {
 class _ManualControlScreenState extends State<ManualControlScreen> {
   final double maxLinearSpeed = 1.0;
   final double maxAngularSpeed = 1.0;
+  bool _isMapReady = false;
+  MapController mapController = MapController();
+  StreamSubscription<Position>? locationStream;
 
- @override
+  double currentLinearValue = 0.0;
+  double currentAngularValue = 0.0;
+
+  void sendCommand() {
+    rosConnection.publishCommand(currentLinearValue, currentAngularValue);
+  }
+
+  @override
   void initState() {
+    locationStream = getPreciseLocationStream().listen((Position position) {
+      if (_isMapReady) {
+        setState(() {
+          var ll = LatLng(position.latitude, position.longitude);
+          mapController.move(ll, 20.0);
+        });
+      }
+    });
+
     super.initState();
-    // We REMOVED rosConnection.connect() from here because the 
-    // DeviceSelectionScreen already did it!
-    
-    // Optional: We can still add a safety check just in case the connection drops
-    // while we are driving.
+
     if (!rosConnection.isConnected) {
-       Navigator.pop(context); // Kick back to selection screen if dead
+      Navigator.pop(context);
     }
   }
 
   @override
   void dispose() {
+    locationStream?.cancel();
+    mapController.dispose();
     rosConnection.publishCommand(0.0, 0.0);
     rosConnection.disconnect();
     super.dispose();
-  }
-
-  void _onJoystickMoved(StickDragDetails details) {
-    double linearX = -(details.y);
-    double angularZ = -(details.x);
-
-    print("Joystick Output -> Linear: $linearX, Angular: $angularZ");
-    rosConnection.publishCommand(linearX, angularZ);
-  }
-
-  void _brakes() {
-    rosConnection.publishCommand(0.0, 0.0);
   }
 
   @override
@@ -52,61 +67,71 @@ class _ManualControlScreenState extends State<ManualControlScreen> {
         title: const Text("Hureka Manual Control"),
         backgroundColor: Colors.blueGrey,
       ),
-      body: SingleChildScrollView(
-        child: SizedBox(
-          height: MediaQuery.of(context).size.height - AppBar().preferredSize.height,
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.end,
-            children: [
-              const Expanded(
-                child: Center(
-                  child: Text(
-                    "GPS Map goes here later!",
-                    style: TextStyle(color: Colors.grey),
-                  ),
-                ),
-              ),
-              
-              Padding(
-                padding: const EdgeInsets.only(bottom: 50.0),
-                child: Column(
-                  children: [
-                    Joystick(
-                      listener: (details) {
-                        _onJoystickMoved(details);
-                      },
-                    ),
-                    const SizedBox(height: 30),
-                    
-                    // --- EMERGENCY STOP BUTTON ---
-                    ElevatedButton(
-                      onPressed: _brakes,
-                      style: ElevatedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(horizontal: 50, vertical: 20),
-                        backgroundColor: Colors.red,
-                      ),
-                      child: const Text(
-                        "EMERGENCY STOP",
-                        style: TextStyle(fontSize: 20, color: Colors.white, fontWeight: FontWeight.bold),
-                      ),
-                    ),
-                    
-                    const SizedBox(height: 20),
+      body: Stack(
+        children: [
+          Positioned.fill(
+            child: MapComponent(
+              initialPosition: LatLng(0.0, 0.0),
+              onMapReady: () => setState(() => _isMapReady = true),
+              mapController: mapController,
+              controllable: false,
+            ),
+          ), 
 
-                    // --- DEBUG TEST BUTTON ---
-                    ElevatedButton(
-                      onPressed: () {
-                        print("TEST BUTTON PRESSED - SENDING FORWARD COMMAND");
-                        rosConnection.publishCommand(1.0, 0.0);
-                      },
-                      child: const Text("FORCED FORWARD TEST"),
-                    ),
-                  ],
-                ),
-              ),
-            ],
+          Positioned(
+            bottom: 100,
+            left: 50,
+            child: Joystick(
+              listener: (details) {
+                setState(() {
+                  currentLinearValue = -(details.y);
+                  currentAngularValue = -(details.x);
+                  sendCommand();
+                });
+              },
+            ),
           ),
-        ),
+
+          Positioned(
+            bottom: 100,
+            right: 150,
+            child: HoldDetectorButton(
+              interval: const Duration(milliseconds: 50),
+              child: const Icon(
+                Icons.arrow_downward,
+                size: 60,
+                color: Colors.red,
+              ),
+              onHold: () {
+                setState(() {
+                  currentLinearValue = 0.0;
+                  sendCommand();
+                });
+              },
+            ),
+          ),
+
+          Positioned(
+            bottom: 200,
+            right: 50,
+            child: HoldDetectorButton(
+              interval: const Duration(milliseconds: 50),
+              child: const Icon(Icons.arrow_upward, size: 60),
+              onHold: () {
+                setState(() {
+                  currentLinearValue = 1.0;
+                  sendCommand();
+                });
+              },
+              onStop: () {
+                setState(() {
+                  currentLinearValue = 0.0;
+                  sendCommand();
+                });
+              },
+            ),
+          ),
+        ],
       ),
     );
   }
