@@ -14,22 +14,27 @@ class RosConnection {
     try {
       _channel = WebSocketChannel.connect(Uri.parse(url));
       
-      // NEW: Tell the app we are connected immediately!
       isConnected = true; 
 
-      // ADVERTISE THE TOPIC TO ROS 2
+      // 1. ADVERTISE THE JOYSTICK TOPIC
       final advertiseMsg = {
         "op": "advertise",
         "topic": "/cmd_vel",
         "type": "geometry_msgs/msg/Twist"
       };
       _channel?.sink.add(jsonEncode(advertiseMsg));
+      
+      // 2. NEW: ADVERTISE THE COORDINATE TOPIC
+      final advertisePointMsg = {
+        "op": "advertise",
+        "topic": "/target_xy",
+        "type": "geometry_msgs/msg/Point"
+      };
+      _channel?.sink.add(jsonEncode(advertisePointMsg));
       // ==========================================
 
       _channel?.stream.listen(
         (message) {
-          // (You can remove the isConnected = true from here if you want, 
-          // since we already set it above!)
           final decodedMessage = jsonDecode(message);
         },
         onError: (error) {
@@ -57,12 +62,11 @@ class RosConnection {
     }
   }
 
+  // Your existing joystick function
   void publishCommand(double linearX, double angularZ) {
-    print("Attempting to publish: $isConnected"); // ADD THIS LINE
     if (_channel == null || !isConnected) {
-      print("BLOCKED: Channel is null or not connected"); // ADD THIS LINE
-    return; 
-  }
+      return; 
+    }
 
     final publishMsg = {
       "op": "publish",
@@ -77,6 +81,33 @@ class RosConnection {
       _channel?.sink.add(jsonEncode(publishMsg));
     } catch (e) {
       print("Failed to send command. Connection lost: $e");
+      isConnected = false;
+    }
+  }
+
+  // NEW: Your coordinate sending function
+  void publishCoordinate(double targetX, double targetY) {
+    print("Attempting to publish coordinate to ROS..."); 
+    if (_channel == null || !isConnected) {
+      print("BLOCKED: Channel is null or not connected"); 
+      return; 
+    }
+
+    final publishMsg = {
+      "op": "publish",
+      "topic": "/target_xy",
+      "msg": {
+        "x": targetX,
+        "y": targetY,
+        "z": 0.0 // Z is 0 because the buggy drives on a flat 2D floor
+      }
+    };
+    
+    try {
+      _channel?.sink.add(jsonEncode(publishMsg));
+      print("Successfully sent X: $targetX, Y: $targetY");
+    } catch (e) {
+      print("Failed to send coordinate. Connection lost: $e");
       isConnected = false;
     }
   }
