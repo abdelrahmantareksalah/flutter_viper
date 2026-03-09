@@ -80,7 +80,7 @@ class _ManualControlScreenState extends State<ManualControlScreen> {
 
           Positioned(
             bottom: 100,
-            left: 50,
+            left: 100,
             child: Joystick(
               listener: (details) {
                 setState(() {

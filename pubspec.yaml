@@ -42,6 +42,7 @@ dependencies:
   web_socket_channel: ^3.0.3
   flutter_joystick: ^0.2.2
   shared_preferences:
+  sensors_plus: ^7.0.0
 dev_dependencies:
   flutter_test:
     sdk: flutter

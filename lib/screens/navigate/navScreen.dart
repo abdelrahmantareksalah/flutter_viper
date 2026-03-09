@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
@@ -18,9 +19,34 @@ class _NavigationScreenState extends State<NavigationScreen> {
   
   LatLng? _targetLocation;
   List<LatLng> _calculatedPath = []; 
-  
-  // NEW: State variable to control the popup button
   bool _isConfirming = false; 
+  StreamSubscription<List<LatLng>>? _pathSubscription;
+
+  @override
+  void initState() {
+    super.initState();
+    // Tune into the ROS 2 radio station! 
+    // Whenever the buggy calculates a path, it broadcasts here and updates the map instantly.
+    _pathSubscription = rosConnection.pathStream.listen((newPath) {
+      setState(() {
+        _calculatedPath = newPath;
+      });
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Route received from VIPER!"), 
+          backgroundColor: Colors.green,
+          duration: Duration(seconds: 2),
+        ),
+      );
+    });
+  }
+
+  @override
+  void dispose() {
+    _pathSubscription?.cancel(); // Turn off the radio when we leave the screen
+    super.dispose();
+  }
 
   // When the user taps the map
   void _onMapTap(TapPosition tapPosition, LatLng point) {
@@ -31,16 +57,17 @@ class _NavigationScreenState extends State<NavigationScreen> {
     });
   }
 
-  // NEW: When the user clicks "Confirm"
+  // When the user clicks "Confirm"
   void _confirmDestination() {
     setState(() {
       _isConfirming = false; // Hide the button
     });
     
-    print("Confirmed Target: ${_targetLocation!.latitude}, ${_targetLocation!.longitude}");
-    
-    // TODO: Send this goal to ROS! 
-    // rosConnection.publishGoalGPS(_targetLocation!.latitude, _targetLocation!.longitude);
+    // Send the exact GPS coordinates to the ROS 2 computer!
+    rosConnection.publishGoalGPS(
+      _targetLocation!.latitude, 
+      _targetLocation!.longitude
+    );
     
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
@@ -68,7 +95,6 @@ class _NavigationScreenState extends State<NavigationScreen> {
 
           LatLng currentLocation = LatLng(pos.latitude, pos.longitude);
 
-          // Wrapped the map in a Stack so we can float UI on top!
           return Stack(
             children: [
               FlutterMap(
@@ -84,6 +110,7 @@ class _NavigationScreenState extends State<NavigationScreen> {
                     userAgentPackageName: 'com.example.flutter_viper',
                   ),
                   
+                  // Draws the path from ROS
                   PolylineLayer(
                     polylines: [
                       if (_calculatedPath.isNotEmpty)
@@ -95,20 +122,20 @@ class _NavigationScreenState extends State<NavigationScreen> {
                     ],
                   ),
 
+                  // Draws your location and the target pin
                   MarkerLayer(
                     markers: [
                       Marker(
                         point: currentLocation,
                         width: 40,
                         height: 40,
-                        child: const Icon(Icons.navigation, color: Colors.green, size: 40),
+                        child: const Icon(Icons.circle , color: Colors.green, size: 40),
                       ),
                       if (_targetLocation != null)
                         Marker(
                           point: _targetLocation!,
                           width: 40,
                           height: 40,
-                          // Make the pin bounce or stand out!
                           child: const Icon(Icons.location_on, color: Colors.red, size: 40),
                         ),
                     ],
@@ -116,7 +143,7 @@ class _NavigationScreenState extends State<NavigationScreen> {
                 ],
               ),
 
-              // NEW: The floating Confirm Button
+              // The floating Confirm Button
               if (_isConfirming)
                 Positioned(
                   bottom: 30,
@@ -144,7 +171,6 @@ class _NavigationScreenState extends State<NavigationScreen> {
           );
         },
       ),
-      // Moved the FAB slightly up so it doesn't get covered by the confirm button
       floatingActionButton: FloatingActionButton(
         backgroundColor: Colors.blueGrey[900],
         child: const Icon(Icons.my_location, color: Colors.white),
