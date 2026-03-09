@@ -60,6 +60,14 @@ class RosConnection {
         onConnectionLost();
       }
     }
+    // 3. ADVERTISE THE GPS TOPIC
+    final advertiseGpsMsg = {
+      "op": "advertise",
+      "topic": "/gps/fix",
+      "type": "sensor_msgs/msg/NavSatFix"
+    };
+    _channel?.sink.add(jsonEncode(advertiseGpsMsg)
+    );
   }
 
   // Your existing joystick function
@@ -108,6 +116,30 @@ class RosConnection {
       print("Successfully sent X: $targetX, Y: $targetY");
     } catch (e) {
       print("Failed to send coordinate. Connection lost: $e");
+      isConnected = false;
+    }
+  }
+  void publishGPS(double lat, double lng, double alt) {
+    if (_channel == null || !isConnected) {
+      return; 
+    }
+
+    final publishMsg = {
+      "op": "publish",
+      "topic": "/gps/fix",
+      "type": "sensor_msgs/msg/NavSatFix",
+      "msg": {
+        "header": {"frame_id": "gps_link"},
+        "latitude": lat,
+        "longitude": lng,
+        "altitude": alt
+      }
+    };
+    
+    try {
+      _channel?.sink.add(jsonEncode(publishMsg));
+    } catch (e) {
+      print("Failed to send GPS. Connection lost: $e");
       isConnected = false;
     }
   }

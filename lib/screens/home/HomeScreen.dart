@@ -59,13 +59,13 @@ class _HomeScreenState extends State<HomeScreen> {
                     navButton(
                       context: context,
                       text: 'Navigate',
-                      route: "/command",
+                      route: "/navigation",
                       icon: Icons.navigation_outlined,
                     ),
                     navButton(
                       context: context,
                       text: 'Command',
-                      route: "/command",
+                      route: "/navigation",
                       icon: Icons.settings,
                     ),
                   ],

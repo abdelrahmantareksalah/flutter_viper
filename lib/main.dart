@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_viper/screens/command/CommandScreen.dart';
+import 'package:flutter_viper/screens/navigate/navScreen.dart';
 import 'package:flutter_viper/screens/home/HomeScreen.dart';
 import 'package:flutter_viper/screens/manualControl/manualControlScreen.dart';
 import 'package:flutter_viper/screens/map/MapScreen.dart';
@@ -43,7 +43,7 @@ class MyApp extends StatelessWidget {
         // 3. All your other awesome features
         '/map': (context) => MapScreen(),
         '/createPath': (context) => CreatePathScreen(),
-        '/command': (context) => CommandScreen(),
+        '/navigation': (context) => NavigationScreen(),
         '/manualControl': (context) => ManualControlScreen(),
       },
     );
