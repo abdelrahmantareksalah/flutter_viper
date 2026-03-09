@@ -91,46 +91,6 @@ class _ManualControlScreenState extends State<ManualControlScreen> {
               },
             ),
           ),
-
-          Positioned(
-            bottom: 100,
-            right: 150,
-            child: HoldDetectorButton(
-              interval: const Duration(milliseconds: 50),
-              child: const Icon(
-                Icons.arrow_downward,
-                size: 60,
-                color: Colors.red,
-              ),
-              onHold: () {
-                setState(() {
-                  currentLinearValue = 0.0;
-                  sendCommand();
-                });
-              },
-            ),
-          ),
-
-          Positioned(
-            bottom: 200,
-            right: 50,
-            child: HoldDetectorButton(
-              interval: const Duration(milliseconds: 50),
-              child: const Icon(Icons.arrow_upward, size: 60),
-              onHold: () {
-                setState(() {
-                  currentLinearValue = 1.0;
-                  sendCommand();
-                });
-              },
-              onStop: () {
-                setState(() {
-                  currentLinearValue = 0.0;
-                  sendCommand();
-                });
-              },
-            ),
-          ),
         ],
       ),
     );

@@ -28,9 +28,9 @@ class MyApp extends StatelessWidget {
       title: 'Hureka', // You can change this to your new app name
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.blue, primary: Colors.blue),
-        useMaterial3: true,
+        useMaterial3: true,  
       ),
-      
+        
       
       // NEW FLOW: We start at the IP Setup Screen instead of the Home Screen
       initialRoute: '/', 
