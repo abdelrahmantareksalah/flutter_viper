@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:web_socket_channel/web_socket_channel.dart';
 import 'package:latlong2/latlong.dart'; 
 import 'package:sensors_plus/sensors_plus.dart'; 
+import 'package:geolocator/geolocator.dart'; // Added for continuous GPS
 
 class RosConnection {
   WebSocketChannel? _channel;
@@ -12,8 +13,14 @@ class RosConnection {
   final _pathStreamController = StreamController<List<LatLng>>.broadcast();
   Stream<List<LatLng>> get pathStream => _pathStreamController.stream;
 
-  // Holds the background sensor stream
+  // Holds the background sensor streams
   StreamSubscription<MagnetometerEvent>? _magSubscription;
+  StreamSubscription<AccelerometerEvent>? _accelSubscription;
+  StreamSubscription<GyroscopeEvent>? _gyroSubscription;
+  StreamSubscription<Position>? _gpsSubscription; // Added GPS stream
+
+  // Cache the latest accelerometer readings to pair with the gyro
+  double _accX = 0.0, _accY = 0.0, _accZ = 0.0;
 
   void connect(String ipAddress, {Function()? onConnectionLost}) {
     disconnect(); 
@@ -73,10 +80,17 @@ class RosConnection {
         "type": "sensor_msgs/msg/MagneticField"
       };
       _channel?.sink.add(jsonEncode(advertiseMagMsg));
+
+      // 7. ADVERTISE IMU (ACCEL + GYRO) TOPIC
+      final advertiseImuMsg = {
+        "op": "advertise",
+        "topic": "/phone/imu",
+        "type": "sensor_msgs/msg/Imu"
+      };
+      _channel?.sink.add(jsonEncode(advertiseImuMsg));
       // ==========================================
 
-      // 7. START BACKGROUND COMPASS STREAM
-      // This streams data continuously to ROS as long as you are connected
+      // 8. START BACKGROUND COMPASS STREAM
       _magSubscription = magnetometerEventStream().listen((MagnetometerEvent event) {
         if (isConnected) {
           // Convert microTeslas to Teslas
@@ -88,7 +102,34 @@ class RosConnection {
         }
       });
 
-      // 8. LISTEN TO INCOMING MESSAGES FROM ROS
+      // 9. START BACKGROUND ACCELEROMETER STREAM (Includes Gravity)
+      _accelSubscription = accelerometerEventStream().listen((AccelerometerEvent event) {
+        _accX = event.x;
+        _accY = event.y;
+        _accZ = event.z;
+      });
+
+      // 10. START BACKGROUND GYROSCOPE STREAM & PUBLISH IMU
+      _gyroSubscription = gyroscopeEventStream().listen((GyroscopeEvent event) {
+        if (isConnected) {
+          publishIMU(event.x, event.y, event.z);
+        }
+      });
+
+      // 11. START BACKGROUND GPS STREAM
+      final locationSettings = const LocationSettings(
+        accuracy: LocationAccuracy.high,
+        distanceFilter: 1, // Sends update every 1 meter of movement
+      );
+
+      _gpsSubscription = Geolocator.getPositionStream(locationSettings: locationSettings)
+          .listen((Position position) {
+        if (isConnected) {
+          publishGPS(position.latitude, position.longitude, position.altitude);
+        }
+      });
+
+      // 12. LISTEN TO INCOMING MESSAGES FROM ROS
       _channel?.stream.listen(
         (message) {
           final decodedMessage = jsonDecode(message);
@@ -105,9 +146,8 @@ class RosConnection {
                 newPath.add(LatLng(lat, lng));
               }
               
-              // Broadcast the list of points to the Map Screen!
+              // Broadcast the list of points to the Map Screen
               _pathStreamController.add(newPath);
-              print("Received new path with ${newPath.length} points!");
             } catch (e) {
               print("Failed to parse incoming path: $e");
             }
@@ -190,7 +230,6 @@ class RosConnection {
     };
     try {
       _channel?.sink.add(jsonEncode(publishMsg));
-      print("Sent Target Goal to ROS: $lat, $lng");
     } catch (e) {
       isConnected = false;
     }
@@ -217,6 +256,30 @@ class RosConnection {
     }
   }
 
+  // IMU Publish (Combined Accel and Gyro)
+  void publishIMU(double gyroX, double gyroY, double gyroZ) {
+    if (_channel == null || !isConnected) return; 
+    
+    final publishMsg = {
+      "op": "publish",
+      "topic": "/phone/imu",
+      "type": "sensor_msgs/msg/Imu",
+      "msg": {
+        "header": {"frame_id": "phone_link"},
+        "orientation_covariance": [-1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+        "angular_velocity": {"x": gyroX, "y": gyroY, "z": gyroZ},
+        "angular_velocity_covariance": [0.01, 0.0, 0.0, 0.0, 0.01, 0.0, 0.0, 0.0, 0.01],
+        "linear_acceleration": {"x": _accX, "y": _accY, "z": _accZ},
+        "linear_acceleration_covariance": [0.01, 0.0, 0.0, 0.0, 0.01, 0.0, 0.0, 0.0, 0.01]
+      }
+    };
+    try { 
+      _channel?.sink.add(jsonEncode(publishMsg)); 
+    } catch (e) { 
+      isConnected = false; 
+    }
+  }
+
   void disconnect() {
     try {
       if (_channel != null) {
@@ -229,9 +292,15 @@ class RosConnection {
       isConnected = false;
       _channel = null;
       
-      // KILL THE COMPASS STREAM TO SAVE BATTERY
+      // KILL ALL SENSOR STREAMS TO SAVE BATTERY
       _magSubscription?.cancel();
       _magSubscription = null;
+      _accelSubscription?.cancel();
+      _accelSubscription = null;
+      _gyroSubscription?.cancel();
+      _gyroSubscription = null;
+      _gpsSubscription?.cancel();
+      _gpsSubscription = null;
     }
   }
 }
