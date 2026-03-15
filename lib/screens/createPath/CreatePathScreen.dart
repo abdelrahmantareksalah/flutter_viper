@@ -25,6 +25,9 @@ class _CreatePathScreenState extends State<CreatePathScreen> {
   
   StreamSubscription<Position>? locationStream;
   List<LatLng> recordedPath = [];
+  
+  // Set your carlink distance parameter here (in meters)
+  final double distanceThreshold = 2.0;
 
   @override
   void initState() {
@@ -32,21 +35,43 @@ class _CreatePathScreenState extends State<CreatePathScreen> {
 
     locationStream = getPreciseLocationStream().listen((Position position) {
       if (recording) {
-        setState(() {
-          var ll = LatLng(position.latitude, position.longitude);
-          recordedPath.add(ll);
-          mapController.move(ll, 20.0);
-          
-          print("Recorded Point: ${position.latitude}, ${position.longitude}");
+        var currentPoint = LatLng(position.latitude, position.longitude);
 
-          // Send the live GPS point to ROS using your global connection!
-          rosConnection.publishGPS(
-            position.latitude, 
-            position.longitude, 
-            position.altitude
+        // If the path is empty, drop the first point immediately
+        if (recordedPath.isEmpty) {
+          _recordAndPublish(currentPoint, position);
+        } else {
+          // Calculate distance between the last recorded point and current position
+          double distanceInMeters = Geolocator.distanceBetween(
+            recordedPath.last.latitude,
+            recordedPath.last.longitude,
+            currentPoint.latitude,
+            currentPoint.longitude,
           );
-        });
+
+          // Only record and publish if we moved past the threshold
+          if (distanceInMeters >= distanceThreshold) {
+            _recordAndPublish(currentPoint, position);
+          }
+        }
       }
+    });
+  }
+
+  // Helper function to keep the logic clean
+  void _recordAndPublish(LatLng point, Position position) {
+    setState(() {
+      recordedPath.add(point);
+      mapController.move(point, 20.0);
+      
+      print("Recorded Point: ${position.latitude}, ${position.longitude}");
+
+      // Send the live GPS point to ROS
+      rosConnection.publishGPS(
+        position.latitude, 
+        position.longitude, 
+        position.altitude
+      );
     });
   }
 
@@ -64,7 +89,15 @@ class _CreatePathScreenState extends State<CreatePathScreen> {
       subTitle: 'Create Path',
       actions: [
         TextButton(
-          onPressed: () => setState(() => recording = !recording),
+          onPressed: () {
+            setState(() {
+              recording = !recording;
+              // Optional: Clear the path if you start a fresh recording
+              if (recording && recordedPath.isNotEmpty) {
+                 recordedPath.clear();
+              }
+            });
+          },
           child: Text(
             recording ? 'End Recording' : 'Start Recording',
             style: TextStyle(color: recording ? Colors.red : Colors.green),
@@ -74,9 +107,11 @@ class _CreatePathScreenState extends State<CreatePathScreen> {
       child: FutureLoaderComponent<Position?>(
         future: getCurrentPosition(),
         builder: (BuildContext context, Position? pos) {
+          if (pos == null) return const Center(child: Text("Waiting for GPS..."));
+          
           return MapComponent(
             mapController: mapController,
-            initialPosition: LatLng(pos!.latitude, pos.longitude),
+            initialPosition: LatLng(pos.latitude, pos.longitude),
             polylineLayer: PolylineLayer(
               polylines: [
                 Polyline(
