@@ -2,8 +2,7 @@ import 'dart:convert';
 import 'dart:async'; 
 import 'package:web_socket_channel/web_socket_channel.dart';
 import 'package:latlong2/latlong.dart'; 
-import 'package:sensors_plus/sensors_plus.dart'; 
-import 'package:geolocator/geolocator.dart'; // Added for continuous GPS
+import 'package:geolocator/geolocator.dart'; 
 
 class RosConnection {
   WebSocketChannel? _channel;
@@ -13,14 +12,8 @@ class RosConnection {
   final _pathStreamController = StreamController<List<LatLng>>.broadcast();
   Stream<List<LatLng>> get pathStream => _pathStreamController.stream;
 
-  // Holds the background sensor streams
-  StreamSubscription<MagnetometerEvent>? _magSubscription;
-  StreamSubscription<AccelerometerEvent>? _accelSubscription;
-  StreamSubscription<GyroscopeEvent>? _gyroSubscription;
-  StreamSubscription<Position>? _gpsSubscription; // Added GPS stream
-
-  // Cache the latest accelerometer readings to pair with the gyro
-  double _accX = 0.0, _accY = 0.0, _accZ = 0.0;
+  // Holds the background GPS stream
+  StreamSubscription<Position>? _gpsSubscription;
 
   void connect(String ipAddress, {Function()? onConnectionLost}) {
     disconnect(); 
@@ -30,34 +23,25 @@ class RosConnection {
 
     try {
       _channel = WebSocketChannel.connect(Uri.parse(url));
-      
       isConnected = true; 
 
-      // 1. ADVERTISE JOYSTICK
-      final advertiseMsg = {
+      // 1. ADVERTISE JOYSTICK TOPIC
+      final advertiseJoystickMsg = {
         "op": "advertise",
         "topic": "/cmd_vel",
         "type": "geometry_msgs/msg/Twist"
       };
-      _channel?.sink.add(jsonEncode(advertiseMsg));
-      
-      // 2. ADVERTISE COORDINATE TOPIC
-      final advertisePointMsg = {
-        "op": "advertise",
-        "topic": "/target_xy",
-        "type": "geometry_msgs/msg/Point"
-      };
-      _channel?.sink.add(jsonEncode(advertisePointMsg));
+      _channel?.sink.add(jsonEncode(advertiseJoystickMsg));
 
-      // 3. ADVERTISE LIVE GPS TOPIC
+      // 2. ADVERTISE LIVE GPS TOPIC
       final advertiseGpsMsg = {
         "op": "advertise",
-        "topic": "/gps/fix",
+        "topic": "/flutter/gps",
         "type": "sensor_msgs/msg/NavSatFix"
       };
       _channel?.sink.add(jsonEncode(advertiseGpsMsg));
 
-      // 4. ADVERTISE GOAL GPS TOPIC (Where you tap on the map)
+      // 3. ADVERTISE GOAL GPS TOPIC (Where you tap on the map)
       final advertiseGoalGpsMsg = {
         "op": "advertise",
         "topic": "/goal_gps",
@@ -65,58 +49,16 @@ class RosConnection {
       };
       _channel?.sink.add(jsonEncode(advertiseGoalGpsMsg));
 
-      // 5. SUBSCRIBE TO CALCULATED PATH
+      // 4. SUBSCRIBE TO CALCULATED PATH
       final subscribePathMsg = {
         "op": "subscribe",
         "topic": "/calculated_path",
         "type": "nav_msgs/msg/Path" 
       };
       _channel?.sink.add(jsonEncode(subscribePathMsg));
-
-      // 6. ADVERTISE MAGNETOMETER (COMPASS) TOPIC
-      final advertiseMagMsg = {
-        "op": "advertise",
-        "topic": "/phone/mag",
-        "type": "sensor_msgs/msg/MagneticField"
-      };
-      _channel?.sink.add(jsonEncode(advertiseMagMsg));
-
-      // 7. ADVERTISE IMU (ACCEL + GYRO) TOPIC
-      final advertiseImuMsg = {
-        "op": "advertise",
-        "topic": "/phone/imu",
-        "type": "sensor_msgs/msg/Imu"
-      };
-      _channel?.sink.add(jsonEncode(advertiseImuMsg));
       // ==========================================
 
-      // 8. START BACKGROUND COMPASS STREAM
-      _magSubscription = magnetometerEventStream().listen((MagnetometerEvent event) {
-        if (isConnected) {
-          // Convert microTeslas to Teslas
-          publishMagnetometer(
-            event.x / 1000000.0, 
-            event.y / 1000000.0, 
-            event.z / 1000000.0
-          );
-        }
-      });
-
-      // 9. START BACKGROUND ACCELEROMETER STREAM (Includes Gravity)
-      _accelSubscription = accelerometerEventStream().listen((AccelerometerEvent event) {
-        _accX = event.x;
-        _accY = event.y;
-        _accZ = event.z;
-      });
-
-      // 10. START BACKGROUND GYROSCOPE STREAM & PUBLISH IMU
-      _gyroSubscription = gyroscopeEventStream().listen((GyroscopeEvent event) {
-        if (isConnected) {
-          publishIMU(event.x, event.y, event.z);
-        }
-      });
-
-      // 11. START BACKGROUND GPS STREAM
+      // 5. START BACKGROUND GPS STREAM
       final locationSettings = const LocationSettings(
         accuracy: LocationAccuracy.high,
         distanceFilter: 1, // Sends update every 1 meter of movement
@@ -129,7 +71,7 @@ class RosConnection {
         }
       });
 
-      // 12. LISTEN TO INCOMING MESSAGES FROM ROS
+      // 6. LISTEN TO INCOMING MESSAGES FROM ROS
       _channel?.stream.listen(
         (message) {
           final decodedMessage = jsonDecode(message);
@@ -172,7 +114,7 @@ class RosConnection {
     }
   }
 
-  // Joystick publish
+  // Joystick Publish
   void publishCommand(double linearX, double angularZ) {
     if (_channel == null || !isConnected) return; 
     final publishMsg = {
@@ -186,24 +128,12 @@ class RosConnection {
     try { _channel?.sink.add(jsonEncode(publishMsg)); } catch (e) { isConnected = false; }
   }
 
-  // Local Coordinate publish
-  void publishCoordinate(double targetX, double targetY) {
-    if (_channel == null || !isConnected) return; 
-    final publishMsg = {
-      "op": "publish",
-      "topic": "/target_xy",
-      "msg": {"x": targetX, "y": targetY, "z": 0.0}
-    };
-    try { _channel?.sink.add(jsonEncode(publishMsg)); } catch (e) { isConnected = false; }
-  }
-
-  // Live GPS publish
+  // Live GPS Publish
   void publishGPS(double lat, double lng, double alt) {
     if (_channel == null || !isConnected) return; 
     final publishMsg = {
       "op": "publish",
-      "topic": "/gps/fix",
-      "type": "sensor_msgs/msg/NavSatFix",
+      "topic": "/flutter/gps",
       "msg": {
         "header": {"frame_id": "gps_link"},
         "latitude": lat,
@@ -220,7 +150,6 @@ class RosConnection {
     final publishMsg = {
       "op": "publish",
       "topic": "/goal_gps",
-      "type": "sensor_msgs/msg/NavSatFix",
       "msg": {
         "header": {"frame_id": "goal_link"},
         "latitude": lat,
@@ -232,51 +161,6 @@ class RosConnection {
       _channel?.sink.add(jsonEncode(publishMsg));
     } catch (e) {
       isConnected = false;
-    }
-  }
-  
-  // Magnetometer Publish
-  void publishMagnetometer(double x, double y, double z) {
-    if (_channel == null || !isConnected) return; 
-    
-    final publishMsg = {
-      "op": "publish",
-      "topic": "/phone/mag",
-      "type": "sensor_msgs/msg/MagneticField",
-      "msg": {
-        "header": {"frame_id": "phone_link"},
-        "magnetic_field": {"x": x, "y": y, "z": z},
-        "magnetic_field_covariance": [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0] 
-      }
-    };
-    try { 
-      _channel?.sink.add(jsonEncode(publishMsg)); 
-    } catch (e) { 
-      isConnected = false; 
-    }
-  }
-
-  // IMU Publish (Combined Accel and Gyro)
-  void publishIMU(double gyroX, double gyroY, double gyroZ) {
-    if (_channel == null || !isConnected) return; 
-    
-    final publishMsg = {
-      "op": "publish",
-      "topic": "/phone/imu",
-      "type": "sensor_msgs/msg/Imu",
-      "msg": {
-        "header": {"frame_id": "phone_link"},
-        "orientation_covariance": [-1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-        "angular_velocity": {"x": gyroX, "y": gyroY, "z": gyroZ},
-        "angular_velocity_covariance": [0.01, 0.0, 0.0, 0.0, 0.01, 0.0, 0.0, 0.0, 0.01],
-        "linear_acceleration": {"x": _accX, "y": _accY, "z": _accZ},
-        "linear_acceleration_covariance": [0.01, 0.0, 0.0, 0.0, 0.01, 0.0, 0.0, 0.0, 0.01]
-      }
-    };
-    try { 
-      _channel?.sink.add(jsonEncode(publishMsg)); 
-    } catch (e) { 
-      isConnected = false; 
     }
   }
 
@@ -292,15 +176,26 @@ class RosConnection {
       isConnected = false;
       _channel = null;
       
-      // KILL ALL SENSOR STREAMS TO SAVE BATTERY
-      _magSubscription?.cancel();
-      _magSubscription = null;
-      _accelSubscription?.cancel();
-      _accelSubscription = null;
-      _gyroSubscription?.cancel();
-      _gyroSubscription = null;
+      // KILL GPS STREAM TO SAVE BATTERY
       _gpsSubscription?.cancel();
       _gpsSubscription = null;
+    }
+  }
+  // Send System Commands (like Start/Stop Recording)
+  void sendSystemCommand(String command) {
+    if (_channel == null || !isConnected) return; 
+    final publishMsg = {
+      "op": "publish",
+      "topic": "/system/command",
+      "type": "std_msgs/msg/String",
+      "msg": {
+        "data": command
+      }
+    };
+    try { 
+      _channel?.sink.add(jsonEncode(publishMsg)); 
+    } catch (e) { 
+      isConnected = false; 
     }
   }
 }

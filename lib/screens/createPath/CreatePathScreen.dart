@@ -5,7 +5,6 @@ import 'package:flutter_viper/components/layout/LayoutComponent.dart';
 import 'package:flutter_viper/components/loader/FutureLoaderComponent.dart';
 import 'package:flutter_viper/components/maps/MapComponent.dart';
 import 'package:flutter_viper/utils/map/getCurrentPosition.dart';
-import 'package:flutter_viper/utils/map/getPreciseLocationStream.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:geolocator/geolocator.dart';
 
@@ -23,63 +22,30 @@ class _CreatePathScreenState extends State<CreatePathScreen> {
   bool recording = false;
   MapController mapController = MapController();
   
-  StreamSubscription<Position>? locationStream;
+  // Listen for the official path from the Pi
+  StreamSubscription<List<LatLng>>? _pathSubscription;
   List<LatLng> recordedPath = [];
-  
-  // Set your carlink distance parameter here (in meters)
-  final double distanceThreshold = 2.0;
 
   @override
   void initState() {
     super.initState();
 
-    locationStream = getPreciseLocationStream().listen((Position position) {
-      if (recording) {
-        var currentPoint = LatLng(position.latitude, position.longitude);
-
-        // If the path is empty, drop the first point immediately
-        if (recordedPath.isEmpty) {
-          _recordAndPublish(currentPoint, position);
-        } else {
-          // Calculate distance between the last recorded point and current position
-          double distanceInMeters = Geolocator.distanceBetween(
-            recordedPath.last.latitude,
-            recordedPath.last.longitude,
-            currentPoint.latitude,
-            currentPoint.longitude,
-          );
-
-          // Only record and publish if we moved past the threshold
-          if (distanceInMeters >= distanceThreshold) {
-            _recordAndPublish(currentPoint, position);
-          }
+    // Listen to the Pi's EKF path stream!
+    _pathSubscription = rosConnection.pathStream.listen((incomingPath) {
+      setState(() {
+        recordedPath = incomingPath;
+        if (recordedPath.isNotEmpty) {
+          // Center camera on the latest point the Pi saved
+          mapController.move(recordedPath.last, 20.0);
         }
-      }
-    });
-  }
-
-  // Helper function to keep the logic clean
-  void _recordAndPublish(LatLng point, Position position) {
-    setState(() {
-      recordedPath.add(point);
-      mapController.move(point, 20.0);
-      
-      print("Recorded Point: ${position.latitude}, ${position.longitude}");
-
-      // Send the live GPS point to ROS
-      rosConnection.publishGPS(
-        position.latitude, 
-        position.longitude, 
-        position.altitude
-      );
+      });
     });
   }
 
   @override
   void dispose() {
-    locationStream?.cancel();
+    _pathSubscription?.cancel();
     mapController.dispose();
-    // We DO NOT close the rosConnection here, so the rest of the app stays connected!
     super.dispose();
   }
 
@@ -91,16 +57,23 @@ class _CreatePathScreenState extends State<CreatePathScreen> {
         TextButton(
           onPressed: () {
             setState(() {
-              recording = !recording;
-              // Optional: Clear the path if you start a fresh recording
-              if (recording && recordedPath.isNotEmpty) {
-                 recordedPath.clear();
+              if (recording) {
+                recording = false;
+                rosConnection.sendSystemCommand("STOP_RECORD");
+              } else {
+                recording = true;
+                recordedPath.clear(); // Clear the screen
+                rosConnection.sendSystemCommand("START_RECORD");
               }
             });
           },
           child: Text(
             recording ? 'End Recording' : 'Start Recording',
-            style: TextStyle(color: recording ? Colors.red : Colors.green),
+            style: TextStyle(
+              color: recording ? Colors.red : Colors.green,
+              fontWeight: FontWeight.bold,
+              fontSize: 16,
+            ),
           ),
         ),
       ],
